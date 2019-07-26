@@ -13,60 +13,41 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     @IBOutlet weak var worldTracking: ARSCNView!
     let configuration = ARWorldTrackingConfiguration()
    
-    @IBAction func play(_ sender: Any)
-    {
-        self.addnode()
-        self.play.isEnabled = false
-    }
-    @IBAction func reset(_ sender: Any)
-    {
-        
-    }
     @IBOutlet weak var play: UIButton!
     override func viewDidLoad() {
         super.viewDidLoad()
         self.worldTracking.debugOptions = [ARSCNDebugOptions.showFeaturePoints, ARSCNDebugOptions.showWorldOrigin]
         self.worldTracking.showsStatistics = true
+        self.configuration.planeDetection = .horizontal
+        self.worldTracking.delegate = self
+       
         self.worldTracking.session.run(configuration)
-        let taprecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        self.worldTracking.addGestureRecognizer(taprecognizer)
     }
     
-    func addnode()
+    func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor)
     {
-        let jellyfish = SCNScene(named: "art.scnassets/Jellyfish.scn")
-        let jellyfishnode = jellyfish?.rootNode.childNode(withName: "Sphere", recursively: false)
-        jellyfishnode?.position = SCNVector3(0,-2,-1)
-        self.worldTracking.scene.rootNode.addChildNode(jellyfishnode!)
-    }
-    @objc func handleTap(sender: UIGestureRecognizer)
-    {
-        let sceneviewTappedOn = sender.view as! SCNView
-        let touchCoords = sender.location(in: sceneviewTappedOn)
-        let hitTest = sceneviewTappedOn.hitTest(touchCoords)
-        if hitTest.isEmpty
-        {
-            print("Fail")
-        }
-        else
-        {
-            let results = hitTest.first!
-            let node = results.node
-            self.animateNode(node: node)
-            print("Pass")
-        }
-        
+        guard let planeAnchor = anchor as? ARPlaneAnchor else {return}
+        let lavaNode = createLava(planeAnchor : planeAnchor)
+        node.addChildNode(lavaNode)
     }
     
-    func animateNode(node: SCNNode)
+    func createLava(planeAnchor: ARPlaneAnchor)->SCNNode
     {
-        let spin = CABasicAnimation(keyPath: "position")
-        spin.fromValue = node.presentation.position
-        spin.toValue = SCNVector3(0,0,node.presentation.position.z - 1)
-        spin.duration = 1
-        spin.repeatCount =  5
-        spin.autoreverses = true
-        node.addAnimation(spin, forKey: "position")
+        let lavaNode = SCNNode(geometry: SCNPlane(width: CGFloat(planeAnchor.extent.x), height: CGFloat(planeAnchor.extent.z)))
+        lavaNode.geometry?.firstMaterial?.diffuse.contents = UIImage(named: "Lava")
+        lavaNode.geometry?.firstMaterial?.isDoubleSided = true
+        lavaNode.position = SCNVector3(planeAnchor.center.x,planeAnchor.center.y,planeAnchor.center.z)
+        lavaNode.eulerAngles = SCNVector3(90.degToRad, 0, 0)
+        return lavaNode
+    }
+    
+    func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        guard let planeAnchor = anchor as? ARPlaneAnchor else {return}
+        node.enumerateChildNodes{(childNode, _) in
+            childNode.removeFromParentNode()
+        }
+        let lavaNode = createLava(planeAnchor : planeAnchor)
+        node.addChildNode(lavaNode)
     }
 }
 
